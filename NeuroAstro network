@@ -1,0 +1,56 @@
+""""custom neuron-astrocyte network"""
+class NeuroAstro(nn.Module):
+    def __init__(self, input_sz, neuron_sz, synapse_sz, glia_sz, gama, tau, output_sz, seed):
+        super().__init__()
+        if seed is not None:
+            # use the provided seed value
+            self.seed = seed
+        else:
+            # use a random seed
+            self.seed = random.randint(0, 100)
+        self.input_size = input_sz
+        self.neuron_size = neuron_sz
+        self.synapse_size = synapse_sz
+        self.glia_size = glia_sz
+        self.output_size = output_sz
+        
+        self.gama = gama
+        self.tau = tau
+        self.input = nn.Linear(self.input_size, self.neuron_size, bias=True) #input layer
+        self.C = nn.Parameter(torch.Tensor(self.synapse_size), requires_grad = False)  #neuron to synapse connection matrix
+        self.D = nn.Parameter(torch.Tensor(self.glia_size, self.synapse_size), requires_grad = False)  #glia to synapse connection matrix
+        self.F = nn.Parameter(torch.Tensor(self.glia_size, self.glia_size), requires_grad = False) #glia connection matrix
+        self.H = nn.Parameter(torch.Tensor(self.synapse_size,self.glia_size), requires_grad = False) #neuron to glia connection matrix
+        self.output = nn.Linear(self.neuron_size,self.output_size, bias=True) #output layer
+
+        # Initializing the parameters to some random values
+        with torch.no_grad():  # this is to say that initialization will not be considered when computing the gradient later on
+            self.C.normal_(std=1 / np.sqrt(self.synapse_size))
+            self.D.normal_(std=1 / np.sqrt(self.synapse_size))
+            self.F.normal_(std=1 / np.sqrt(self.glia_size))
+            self.H.normal_(std=1 / np.sqrt(self.glia_size))
+
+    def forward(self, inputs, init_states):  
+        length = inputs.size(-1)
+        hidden_list = torch.zeros(length, self.neuron_size*(self.neuron_size+1)+self.glia_size)
+        out_list = torch.zeros(length, self.output_size)
+        hidden = torch.zeros(1, self.neuron_size*(self.neuron_size+1)+self.glia_size).cuda()
+        x_t=  hidden[:, :self.neuron_size]
+        w_t = hidden[:, self.neuron_size:self.neuron_size*(self.neuron_size+1)]
+        z_t = hidden[:, self.neuron_size*(self.neuron_size+1):self.neuron_size*(self.neuron_size+1)+self.glia_size]
+      
+
+        
+        for t in range(length):
+            x_t1 = (1- self.gama) * x_t + self.gama * (torch.sigmoid(x_t) @ torch.reshape(w_t, (self.neuron_size, self.neuron_size)) + self.input( inputs[:,t]) )
+            w_t1 = (1- self.gama) * w_t + self.gama * (torch.reshape((torch.sigmoid(x_t).reshape(-1,1) @ torch.sigmoid(x_t)), (1,-1)) @ torch.diag(self.C) +  torch.tanh(z_t) @ self.D)
+            z_t1 = (1- self.gama * self.tau) * z_t + self.gama * self.tau * (torch.tanh(z_t) @ self.F + torch.reshape((torch.sigmoid(x_t).reshape(-1,1) @torch.sigmoid(x_t)), (1,-1)) @ self.H)
+
+            new_hidden = torch.cat( (x_t1, w_t1, z_t1), dim =1)
+            out = self.output(x_t1)
+            hidden_list[t] = torch.cat( (x_t1, w_t1, z_t1), dim =1)
+            out_list[t] = out 
+        return out,  new_hidden, hidden_list, out_list
+
+
+"""
