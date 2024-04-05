@@ -54,7 +54,7 @@ class NeuroAstro(nn.Module):
 
 
 """Neuro-astrocyte reinforcement learning algorithm"""
-class NeurogliaRL(nn.Module):
+class NeuroAstroRL(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = NeuroAstro(input_sz, neuron_sz, synapse_sz, glia_sz, gama, tau, output_sz, seed).cuda()
