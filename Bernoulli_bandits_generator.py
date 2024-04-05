@@ -7,11 +7,10 @@ torch.manual_seed(0)
 
 # stationary bandit
 class StationaryBbs(Dataset):
-    def __init__(self, , n_samples=10001, n_actions=3, lamada=0.05):
+    def __init__(self,  n_samples, n_actions, lamada):
         super().__init__()
         self.n_samples = n_samples
-        self.dist_parameters = torch.Tensor([0.4, 0.8, 0.1])
-#         self.dist_parameters = torch.Tensor([0.6-lamada, 0.6, 0.6+lamada]) # for robust analysis
+        self.dist_parameters = torch.rand((n_actions))
         self.randomizer = Bernoulli(probs=self.dist_parameters)
         self.n_actions = n_actions
 
@@ -27,7 +26,7 @@ class StationaryBbs(Dataset):
     
 # non-stationary bandit--abrupt change
 class Flip_flop(Dataset):
-    def __init__(self, n_samples=10001, n_actions=3, period=2000):
+    def __init__(self, n_samples, n_actions, period):
         super().__init__()
         self.n_samples = n_samples
         self.dist_parameters = torch.rand((n_actions))
@@ -47,7 +46,7 @@ class Flip_flop(Dataset):
 
 # non-stationary bandit-smooth change
 class Smooth_change(Dataset):
-    def __init__(self, n_samples=80001, n_actions=3, period=5000):
+    def __init__(self, n_samples, n_actions, period):
         super().__init__()
         self.n_samples = n_samples
         self.dist_parameters = torch.rand((n_actions))
