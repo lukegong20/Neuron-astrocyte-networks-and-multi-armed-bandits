@@ -29,6 +29,9 @@ class RNNnet(nn.Module):
         
         return self.fc(out), new_hidden
         
+"""The training method is partially borrowed from the paper
+    'Energy Regularized RNNs for Solving Non-Stationary Bandit Problems (2023)' """
+
 class RecurrentRNN(object):
     def __init__(self, in_size=1, out_size=3, seed, *args, **kwargs):
         if seed is not None:
