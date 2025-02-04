@@ -7,9 +7,9 @@ import sys
 import math
 from torch.distributions.categorical import Categorical
 from torch.distributions.beta import Beta
+from collections import defaultdict
 
-
-""""vanilla_RNN""""
+""""vanilla_RNN"""
 class RNNnet(nn.Module):
     def __init__(self, in_size, out_size, seed=None, *args, **kwargs):
         super().__init__()
@@ -33,7 +33,7 @@ class RNNnet(nn.Module):
     'Energy Regularized RNNs for Solving Non-Stationary Bandit Problems (2023)' """
 
 class RecurrentRNN(object):
-    def __init__(self, in_size=1, out_size=3, seed, *args, **kwargs):
+    def __init__(self, in_size=1, out_size=3, seed=None, *args, **kwargs):
         if seed is not None:
             # use the provided seed value
             self.seed = seed
@@ -70,8 +70,8 @@ class RecurrentRNN(object):
         cumulative_regret = 0
         cumulative_regrets = []
    
-        for i, (rew, orig_probs, context, mask) in enumerate(ds):
-            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, mask, ds, context=context,
+        for i, (rew, orig_probs) in enumerate(ds):
+            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, ds,
                                                                          ht=new_hidden)
             m_reward = (reward - reward_dict[0])
             self.t += 1
@@ -103,11 +103,11 @@ class RecurrentRNN(object):
     
 # choose actions
 
-    def get_arm(self, rew, orig_probs, mask, ds, **kwargs):
+    def get_arm(self, rew, orig_probs, ds, **kwargs):
         old_state = kwargs['ht']
-        env_state = torch.exp(-torch.zeros(ds.dataset.n_contexts, dtype=torch.float).unsqueeze(0).unsqueeze(0).cuda()) # feed inputs
-
-        logits,  new_hidden = self.model(env_state, old_state)
+        dummy_state = (torch.ones(1)).unsqueeze(0).cuda()
+        env_cue = dummy_state
+        logits,  new_hidden = self.model(env_cue, old_state)
     
         if self.model.training:
                 m = Categorical(logits=logits / 2.0)
@@ -115,7 +115,7 @@ class RecurrentRNN(object):
         else:
                 _, action = torch.max(logits, 2)
                 
-       action = action.detach().cpu()
+        action = action.detach().cpu()
         reward = rew[0, action].detach().cpu().item() if self.action_bank.detach().cpu()[action] > 0 else 0
         regret = np.max(orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1)) - \
                  (orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1))[action]        
@@ -125,7 +125,8 @@ class RecurrentRNN(object):
 
 
 
-""""GRU_RNN""""
+""""GRU_RNN"""
+
 class GRUnet(nn.Module):
     def __init__(self, in_size, out_size, seed=None, *args, **kwargs):
         super().__init__()
@@ -145,7 +146,7 @@ class GRUnet(nn.Module):
         out, new_hidden = self.seq(x, hidden)
         return self.fc(out), new_hidden
 class RecurrentGRU(object):
-    def __init__(self, in_size=1, out_size=3, seed, *args, **kwargs):
+    def __init__(self, in_size=1, out_size=3, seed=None, *args, **kwargs):
         if seed is not None:
             # use the provided seed value
             self.seed = seed
@@ -182,8 +183,8 @@ class RecurrentGRU(object):
         cumulative_regret = 0
         cumulative_regrets = []
    
-        for i, (rew, orig_probs, context, mask) in enumerate(ds):
-            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, mask, ds, context=context,
+        for i, (rew, orig_probs) in enumerate(ds):
+            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, ds,
                                                                          ht=new_hidden)
             m_reward = (reward - reward_dict[0])
             self.t += 1
@@ -215,11 +216,11 @@ class RecurrentGRU(object):
     
 # choose actions
 
-    def get_arm(self, rew, orig_probs, mask, ds, **kwargs):
+    def get_arm(self, rew, orig_probs, ds, **kwargs):
         old_state = kwargs['ht']
-        env_state = torch.exp(-torch.zeros(ds.dataset.n_contexts, dtype=torch.float).unsqueeze(0).unsqueeze(0).cuda()) # feed inputs
-
-        logits,  new_hidden = self.model(env_state, old_state)
+        dummy_state = (torch.ones(1)).unsqueeze(0).cuda()
+        env_cue = dummy_state
+        logits,  new_hidden = self.model(env_cue, old_state)
     
         if self.model.training:
                 m = Categorical(logits=logits / 2.0)
@@ -227,7 +228,7 @@ class RecurrentGRU(object):
         else:
                 _, action = torch.max(logits, 2)
                 
-       action = action.detach().cpu()
+        action = action.detach().cpu()
         reward = rew[0, action].detach().cpu().item() if self.action_bank.detach().cpu()[action] > 0 else 0
         regret = np.max(orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1)) - \
                  (orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1))[action]        
@@ -262,7 +263,7 @@ class LSTMnet(nn.Module):
         return self.fc(out), new_hidden
 
 class RecurrentLSTM(object):
-    def __init__(self, in_size=1, out_size=3, seed, *args, **kwargs):
+    def __init__(self, in_size=1, out_size=3, seed=None, *args, **kwargs):
         if seed is not None:
             # use the provided seed value
             self.seed = seed
@@ -299,8 +300,8 @@ class RecurrentLSTM(object):
         cumulative_regret = 0
         cumulative_regrets = []
    
-        for i, (rew, orig_probs, context, mask) in enumerate(ds):
-            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, mask, ds, context=context,
+        for i, (rew, orig_probs) in enumerate(ds):
+            action, reward, regret, new_hidden, m, logits = self.get_arm(rew, orig_probs, ds,
                                                                          ht=new_hidden)
             m_reward = (reward - reward_dict[0])
             self.t += 1
@@ -332,11 +333,11 @@ class RecurrentLSTM(object):
     
 # choose actions
 
-    def get_arm(self, rew, orig_probs, mask, ds, **kwargs):
+    def get_arm(self, rew, orig_probs, ds, **kwargs):
         old_state = kwargs['ht']
-        env_state = torch.exp(-torch.zeros(ds.dataset.n_contexts, dtype=torch.float).unsqueeze(0).unsqueeze(0).cuda()) # feed inputs
-
-        logits,  new_hidden = self.model(env_state, old_state)
+        dummy_state = (torch.ones(1)).unsqueeze(0).cuda()
+        env_cue = dummy_state
+        logits, new_hidden = self.model(env_cue, old_state)
     
         if self.model.training:
                 m = Categorical(logits=logits / 2.0)
@@ -344,7 +345,7 @@ class RecurrentLSTM(object):
         else:
                 _, action = torch.max(logits, 2)
                 
-       action = action.detach().cpu()
+        action = action.detach().cpu()
         reward = rew[0, action].detach().cpu().item() if self.action_bank.detach().cpu()[action] > 0 else 0
         regret = np.max(orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1)) - \
                  (orig_probs.squeeze().numpy() * np.clip(self.action_bank.detach().cpu().numpy(), 0, 1))[action]        
